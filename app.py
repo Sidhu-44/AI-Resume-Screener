@@ -30,7 +30,7 @@ with st.sidebar:
     )
     st.markdown("---")
     if api_key:
-        st.success("Gemini API key loaded from .env")
+        st.success("Gemini API key loaded successfully")
     else:
         st.error(
             f"No Gemini API key found.\n\nAdd GOOGLE_API_KEY to:\n`{ENV_PATH}`\n\n"
