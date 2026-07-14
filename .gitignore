@@ -1,0 +1,18 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Cache
+.cache/
+cache/
+
+# VS Code
+.vscode/
+
+# Virtual Environment
+venv/
+.venv/
+env/
