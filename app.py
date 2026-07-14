@@ -195,3 +195,19 @@ if run_button:
 # stats = cache_module.cache_stats()
 # with st.expander("⚡ Cache Statistics"):
 #     st.json(stats)
+st.markdown("---")
+
+st.markdown(
+    """
+<div style="text-align:center; color:gray; font-size:15px; padding:15px;">
+<b>Developed by $IDHU</b><br>
+B.Tech CSE (AI & ML) | Lovely Professional University<br><br>
+
+<a href="https://github.com/Sidhu-44" target="_blank" style="color: gray; text-decoration: none; font-weight: bold;">GitHub
+</a>
+&nbsp;|&nbsp;
+<a href="https://www.linkedin.com/in/ande-naga-subramanyam/" target="_blank" style="color: gray; text-decoration: none; font-weight: bold;">LinkedIn</a>
+</div>
+""",
+    unsafe_allow_html=True,
+)
