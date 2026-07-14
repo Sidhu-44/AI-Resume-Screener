@@ -192,6 +192,6 @@ if run_button:
                                 st.markdown(f"**[{chunk['section']}]**")
                                 st.text(chunk["text"][:500])
 
-stats = cache_module.cache_stats()
-with st.expander("⚡ Cache Statistics"):
-    st.json(stats)
+# stats = cache_module.cache_stats()
+# with st.expander("⚡ Cache Statistics"):
+#     st.json(stats)
