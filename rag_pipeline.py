@@ -35,12 +35,10 @@ _CATEGORY_WEIGHTS = {
 
 
 def get_embeddings(api_key: str) -> GoogleGenerativeAIEmbeddings:
-    """Construct a Gemini embeddings client for a single screening run. Called once per run."""
     return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=api_key)
 
 
 def get_llm(api_key: str) -> ChatGoogleGenerativeAI:
-    """Construct a Gemini chat client for a single screening run. Called once per run."""
     return ChatGoogleGenerativeAI(model=CHAT_MODEL, google_api_key=api_key, temperature=0.1)
 
 
@@ -136,13 +134,6 @@ def _get_or_embed_resume_chunks(
 def _load_or_build_vectorstore(
     resume_hash: str, section_chunks: List[Tuple[str, str]], embeddings
 ) -> Optional[FAISS]:
-    """
-    Load a persisted FAISS index for this resume hash if one exists, skipping
-    chunk embedding entirely. Only on a cache miss (or a failed load) does
-    this fall back to embedding the chunks and building + persisting a new
-    index. This is the fix for "rebuilding the FAISS vector store every run" —
-    previously the index was rebuilt unconditionally on every call.
-    """
     cached_dir = cache_module.get_vectorstore_dir(resume_hash)
     if cached_dir is not None:
         try:
@@ -179,7 +170,6 @@ def _load_or_build_vectorstore(
 
 
 def _build_evidence_query(report: Dict) -> str:
-    """Build a targeted retrieval query from what was actually matched, not the whole JD."""
     parts = []
     if report.get("matched_skills"):
         parts.append("Skills: " + ", ".join(report["matched_skills"]))

@@ -1,4 +1,3 @@
-"""prompts.py"""
 
 JD_PARSE_PROMPT = """You are a strict information-extraction engine. Extract ONLY facts explicitly \
 stated in the job description below. Never rate, score, or recommend anything.

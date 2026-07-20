@@ -19,6 +19,7 @@ CANONICAL_SKILL_MAP: Dict[str, str] = {
     # =========================
     "ml": "machine learning",
     "machine learning": "machine learning",
+    "ML": "machine learning",
 
     "ai": "artificial intelligence",
     "artificial intelligence": "artificial intelligence",
@@ -387,11 +388,6 @@ def _cosine_sim_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def embed_with_cache(texts: List[str], embeddings) -> np.ndarray:
-    """
-    Embed a list of texts, reusing cached vectors keyed by content hash.
-    Only texts not already cached are sent to the API, in a single
-    batched call. Raises on API failure so callers can degrade gracefully.
-    """
     if not texts:
         return np.zeros((0, 0))
 

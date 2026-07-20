@@ -115,7 +115,6 @@ def _score_projects_semantic(
     score = min(100.0, max(0.0, avg_sim * 100.0))
     return score, relevant_names
 
-
 def _score_certifications(
     jd_certifications: List[str],
     resume_certifications: List[str],

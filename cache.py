@@ -360,12 +360,6 @@ class ResumeScreenerCache:
             "estimated_embedding_calls_saved": saved_embedding_calls,
         }
 
-
-# ---------------------------------------------------------------------
-# Module-level singleton + thin functional API
-# (so callers can `from cache import get_resume, save_resume, ...`)
-# ---------------------------------------------------------------------
-
 _default_cache = ResumeScreenerCache()
 
 

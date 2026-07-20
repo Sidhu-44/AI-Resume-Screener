@@ -94,8 +94,6 @@ def safe_parse_json(raw_text: str) -> dict:
             pass
 
     raise ValueError(f"Could not parse JSON from model response. Started with: {cleaned[:200]!r}")
-
-
 def call_gemini_json(llm, prompt: str, fallback: dict) -> dict:
     """Call the LLM expecting JSON-only output; return fallback + '_error' on any failure."""
     logger = get_logger()

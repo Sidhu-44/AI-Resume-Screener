@@ -29,8 +29,7 @@ RESUME_FALLBACK: Dict = {
     "ats_keywords": []
 }
 
-# Section headers used ONLY for post-scoring evidence retrieval (rag_pipeline.py),
-# never for structured extraction — the full resume is always parsed as one unit.
+
 SECTION_HEADERS = [
     "summary", "objective", "profile",
     "skills", "technical skills", "core competencies",
@@ -74,11 +73,6 @@ _DURATION_MONTHS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*\+?\s*month", re.IGNORECASE
 
 
 def chunk_resume_by_sections(resume_text: str) -> List[Tuple[str, str]]:
-    """
-    Split resume text along detected section headers, for evidence
-    retrieval only (never for structured parsing). Falls back to
-    fixed-size chunking (tagged "general") if fewer than 2 headers found.
-    """
     if not resume_text:
         return [("general", "")]
 
@@ -221,12 +215,6 @@ def compute_experience_years(experience_entries: List[Dict]) -> Optional[float]:
 
 
 def parse_resume(candidate_name: str, resume_text: str, llm) -> Dict:
-    """
-    Extract structured facts from the COMPLETE resume via Gemini, with
-    caching keyed by resume content hash to avoid redundant API calls
-    across multiple screening runs. total_experience_years is computed
-    separately in Python via compute_experience_years.
-    """
     if not resume_text or not resume_text.strip():
         logger.warning(f"Empty resume text for candidate: {candidate_name}")
         result = dict(RESUME_FALLBACK)
