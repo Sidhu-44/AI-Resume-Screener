@@ -43,7 +43,6 @@ def get_llm(api_key: str) -> ChatGoogleGenerativeAI:
 
 
 def _build_score_breakdown(category_scores: Dict[str, float]) -> Dict[str, Dict[str, float]]:
-    """Attach weight and weighted-point-contribution context to each category score."""
     breakdown = {}
     for category, score in category_scores.items():
         weight = _CATEGORY_WEIGHTS.get(category, 0)
@@ -56,7 +55,6 @@ def _build_score_breakdown(category_scores: Dict[str, float]) -> Dict[str, Dict[
 
 
 def _empty_result(candidate_name: str, message: str, jd_struct: Dict) -> Dict:
-    """Full-schema placeholder result for resumes that fail before scoring."""
     return {
         "candidate_name": candidate_name,
         "overall_score": 0,
@@ -78,7 +76,6 @@ def _empty_result(candidate_name: str, message: str, jd_struct: Dict) -> Dict:
 
 
 def _parse_jd_cached(job_description: str, llm) -> Dict:
-    """Parse the JD once, reusing a cached structured result for identical JD text."""
     jd_hash = hash_text(job_description)
     cached = cache_module.get_jd(jd_hash)
     if cached is not None:
@@ -97,7 +94,6 @@ def _parse_jd_cached(job_description: str, llm) -> Dict:
 
 
 def _get_or_embed_jd(jd_hash: str, job_description: str, embeddings) -> List[float]:
-    """Embed the JD once; reuse a cached vector for identical JD text on future runs."""
     cached = cache_module.get_embeddings(jd_hash, namespace="jd_embeddings")
     if cached is not None and cached.get("texts") == [job_description]:
         logger.info(f"JD embedding cache hit ({jd_hash[:12]}...)")
@@ -111,7 +107,6 @@ def _get_or_embed_jd(jd_hash: str, job_description: str, embeddings) -> List[flo
 def _get_or_embed_resume_chunks(
     resume_hash: str, texts: List[str], embeddings
 ) -> Optional[List[List[float]]]:
-    """Embed resume chunks once per resume; reuse cached vectors across screening runs."""
     if not texts:
         return None
 
@@ -181,11 +176,6 @@ def _build_evidence_query(report: Dict) -> str:
 
 
 def _retrieve_evidence(resume_hash: str, resume_text: str, report: Dict, embeddings) -> List[Dict[str, str]]:
-    """
-    Post-scoring MMR retrieval limited to evidence for what was matched.
-    Never used for structured extraction — extraction already happened on
-    the complete resume text in resume_analyzer.parse_resume.
-    """
     section_chunks = chunk_resume_by_sections(resume_text)
 
     vectorstore = _load_or_build_vectorstore(resume_hash, section_chunks, embeddings)
@@ -244,16 +234,8 @@ def _process_single_resume(
 
 
 def rank_resumes(job_description: str, resumes: List[Tuple[str, str]], api_key: str) -> Dict:
-    """
-    Screen a batch of resumes against a job description.
-    resumes: list of (filename, resume_text) tuples.
-    Returns {"jd_struct": ..., "results": [...], "jd_error": Optional[str]}.
-    Results are sorted by overall_score descending, with ties broken by
-    original input order — deterministic regardless of which worker
-    thread happens to finish first.
-    """
-    embeddings = get_embeddings(api_key)  # single instance, reused for every resume below
-    llm = get_llm(api_key)                # single instance, reused for every resume below
+    embeddings = get_embeddings(api_key)  
+    llm = get_llm(api_key)                
 
     with Timer(logger, "JD parsing"):
         jd_struct = _parse_jd_cached(job_description, llm)

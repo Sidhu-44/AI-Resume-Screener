@@ -345,19 +345,16 @@ EDUCATION_ALIASES: Dict[str, str] = {
 
 
 def _clean_key(text: str) -> str:
-    """Lowercase and strip punctuation/extra whitespace for dictionary lookups."""
     cleaned = re.sub(r"[.\-']", "", text.lower())
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def normalize_skill(skill: str) -> str:
-    """Normalize a skill by cleaning punctuation and mapping aliases."""
     key = _clean_key(skill or "")
     return CANONICAL_SKILL_MAP.get(key, key)
 
 
 def normalize_skill_list(skills: List[str]) -> List[str]:
-    """Normalize a list of skills, de-duplicating while preserving order."""
     seen = set()
     normalized = []
     for s in skills or []:
@@ -369,10 +366,6 @@ def normalize_skill_list(skills: List[str]) -> List[str]:
 
 
 def normalize_education(level: Optional[str]) -> Optional[str]:
-    """
-    Map a free-form education string to one of: high_school, associate,
-    bachelor, master, phd. Returns None if unrecognized rather than guessing.
-    """
     if not level:
         return None
     key = _clean_key(level)
@@ -421,11 +414,6 @@ def embed_with_cache(texts: List[str], embeddings) -> np.ndarray:
 
 
 def match_skills(jd_skills: List[str], resume_skills: List[str], embeddings) -> Dict[str, List[str]]:
-    """
-    Match JD skills against resume skills: exact/alias match first, then
-    cached semantic similarity for anything left unmatched.
-    Returns {"matched": [...], "missing": [...]} using original JD skill strings.
-    """
     if not jd_skills:
         return {"matched": [], "missing": []}
 

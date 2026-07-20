@@ -45,7 +45,6 @@ def _score_experience(min_years: Optional[float], resume_years: Optional[float])
 
 
 def _score_education(required_level: Optional[str], resume_level: Optional[str]) -> float:
-    """Score education match using normalized levels; no requirement yields full score."""
     norm_required = normalize_education(required_level)
     norm_resume = normalize_education(resume_level)
 
@@ -74,12 +73,6 @@ def _score_projects_semantic(
     projects: List[Dict],
     embeddings,
 ) -> Tuple[float, List[str]]:
-    """
-    Score project relevance via semantic similarity between JD required/
-    preferred skills and each project's combined text (name + description
-    + technologies_used), instead of keyword substring matching.
-    Returns (score, relevant_project_names).
-    """
     if not projects:
         return 50.0, []
 
@@ -120,7 +113,6 @@ def _score_certifications(
     resume_certifications: List[str],
     embeddings,
 ) -> Tuple[float, List[str], List[str]]:
-    """Score certification match; returns (score, matched, missing)."""
     if not jd_certifications:
         bonus = min(100.0, len(resume_certifications or []) * 20.0)
         return bonus, list(resume_certifications or []), []
@@ -131,10 +123,6 @@ def _score_certifications(
 
 
 def _keyword_evidence(jd_keywords: List[str], resume_terms: List[str]) -> List[str]:
-    """
-    Additional explainability signal only — overlap between JD keywords and
-    resume terms. Never contributes to the numeric score.
-    """
     if not jd_keywords:
         return []
     try:
@@ -172,11 +160,6 @@ def _build_summary(
 
 
 def score_resume(candidate_name: str, jd_struct: Dict, resume_struct: Dict, embeddings) -> Dict:
-    """
-    Compute the full deterministic ATS report for one candidate from
-    already-extracted structured JD and resume facts. No Gemini calls
-    occur in this function.
-    """
     try:
         resume_skills_all = list(
             set(

@@ -1,24 +1,3 @@
-"""
-cache.py
----------
-Persistent, thread-safe caching for everything expensive in the pipeline:
-parsed resume JSON, parsed JD JSON, resume-chunk embeddings, and skill
-embeddings — plus (when practical) full FAISS vectorstores.
-
-Design summary (see chat for full rationale):
-- Disk-backed JSON files, keyed by SHA-256 content hash (utils.hash_bytes /
-  utils.hash_text) — never by filename. This is what makes "resume renamed
-  -> still a hit" and "resume edited -> automatic miss" both true without
-  any explicit invalidation code.
-- A small CacheBackend interface separates *what* gets cached (this file)
-  from *where* it's stored, so swapping disk storage for Redis later means
-  writing one new backend class, not touching the rest of the app.
-- Every entry carries a schema_version + created_at, so a prompt/schema
-  change can invalidate everything at once (bump CACHE_SCHEMA_VERSION),
-  and TTLs catch staleness even when content hashes haven't changed.
-- Only the in-memory hit/miss counters need a lock; concurrent writes to
-  different cache keys are naturally safe since they're different files.
-"""
 
 import json
 import os
@@ -32,9 +11,6 @@ from typing import Optional, Protocol
 from utils import get_logger
 
 logger = get_logger()
-
-# Bump this if prompts.py or a struct schema changes materially enough
-# that old cached extractions should no longer be trusted.
 CACHE_SCHEMA_VERSION = 1
 
 DEFAULT_CACHE_DIR = Path(os.getenv("RESUME_SCREENER_CACHE_DIR", Path(__file__).resolve().parent / ".cache"))
@@ -44,18 +20,12 @@ DEFAULT_TTLS = {
     "resume": 90 * SECONDS_PER_DAY,
     "jd": 7 * SECONDS_PER_DAY,
     "resume_embeddings": 90 * SECONDS_PER_DAY,
-    "skill_embeddings": None,  # normalized skill -> vector essentially never goes stale
+    "skill_embeddings": None, 
     "vectorstore": 90 * SECONDS_PER_DAY,
 }
 
 NAMESPACES = ["resume", "jd", "resume_embeddings", "skill_embeddings", "vectorstore"]
 
-
-# ---------------------------------------------------------------------
-# Backend interface — swap DiskCacheBackend for RedisCacheBackend (or
-# anything else implementing this interface) without touching the rest
-# of the app.
-# ---------------------------------------------------------------------
 
 class CacheBackend(Protocol):
     def read(self, namespace: str, key: str) -> Optional[dict]: ...
@@ -100,22 +70,16 @@ class DiskCacheBackend:
 
     def write(self, namespace: str, key: str, payload: dict) -> None:
         path = self._file_path(namespace, key)
-        path.parent.mkdir(parents=True, exist_ok=True)  # covers namespaces (e.g. "_meta") not in NAMESPACES
-        # Unique temp name per call: multiple threads can legitimately write
-        # the SAME key concurrently (e.g. the shared stats file on every
-        # save_*), so a fixed ".tmp" name would let one thread's rename
-        # race another's. os.replace to the shared final path is still
-        # atomic — the last writer simply wins.
+        path.parent.mkdir(parents=True, exist_ok=True)  
         tmp_path = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.{time.time_ns()}.tmp")
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(payload, f)
-        os.replace(tmp_path, path)  # atomic on POSIX and Windows
+        os.replace(tmp_path, path) 
 
     def delete(self, namespace: str, key: str) -> None:
         path = self._file_path(namespace, key)
         if path.exists():
             path.unlink()
-        # Also remove a directory-style entry (e.g. a cached FAISS index), if any.
         directory = self.root / namespace / key
         if directory.exists() and directory.is_dir():
             import shutil
@@ -142,11 +106,6 @@ class DiskCacheBackend:
                 total += p.stat().st_size
         return total
 
-
-# ---------------------------------------------------------------------
-# Domain-facing cache
-# ---------------------------------------------------------------------
-
 @dataclass
 class _NamespaceStats:
     hits: int = 0
@@ -167,8 +126,6 @@ class ResumeScreenerCache:
         self._stats_lock = threading.RLock()
         self._stats = {ns: _NamespaceStats() for ns in NAMESPACES}
         self._load_persisted_stats()
-
-    # -- internal: entry wrapping / TTL + schema checks -----------------
 
     def _wrap(self, data) -> dict:
         return {
@@ -202,8 +159,6 @@ class ResumeScreenerCache:
             stats.last_updated = time.time()
         self._persist_stats()
 
-    # -- internal: stats persistence (cheap — only on save/cache_stats) --
-
     _STATS_NAMESPACE = "_meta"
     _STATS_KEY = "stats"
 
@@ -228,8 +183,6 @@ class ResumeScreenerCache:
         except Exception as e:
             logger.warning(f"Could not persist cache stats: {e}")
 
-    # -- Resume JSON ------------------------------------------------------
-
     def get_resume(self, resume_hash: str) -> Optional[dict]:
         entry = self.backend.read("resume", resume_hash)
         data = self._unwrap_if_valid("resume", entry)
@@ -240,8 +193,6 @@ class ResumeScreenerCache:
         self.backend.write("resume", resume_hash, self._wrap(resume_struct))
         self._record_save("resume")
 
-    # -- Job Description JSON ---------------------------------------------
-
     def get_jd(self, jd_hash: str) -> Optional[dict]:
         entry = self.backend.read("jd", jd_hash)
         data = self._unwrap_if_valid("jd", entry)
@@ -251,8 +202,6 @@ class ResumeScreenerCache:
     def save_jd(self, jd_hash: str, jd_struct: dict) -> None:
         self.backend.write("jd", jd_hash, self._wrap(jd_struct))
         self._record_save("jd")
-
-    # -- Embeddings (generic; used for resume-chunk embeddings) -----------
 
     def get_embeddings(self, key_hash: str, namespace: str = "resume_embeddings") -> Optional[dict]:
         """Returns {"texts": [...], "vectors": [...]} or None on a miss."""
@@ -266,8 +215,6 @@ class ResumeScreenerCache:
         self.backend.write(namespace, key_hash, self._wrap({"texts": texts, "vectors": vectors}))
         self._record_save(namespace)
 
-    # -- Skill embeddings (one vector per normalized skill string) --------
-
     def get_skill_embedding(self, skill_hash: str) -> Optional[list]:
         entry = self.backend.read("skill_embeddings", skill_hash)
         data = self._unwrap_if_valid("skill_embeddings", entry)
@@ -278,14 +225,7 @@ class ResumeScreenerCache:
         self.backend.write("skill_embeddings", skill_hash, self._wrap({"vector": vector}))
         self._record_save("skill_embeddings")
 
-    # -- FAISS vectorstore (optional; cached "when practical") ------------
-
     def get_vectorstore_dir(self, resume_hash: str):
-        """
-        Returns the directory path to load an existing cached vectorstore
-        from (via FAISS.load_local(path, embeddings)), or None if there's
-        no valid, non-expired cache entry for this resume.
-        """
         marker = self.backend.read("vectorstore", f"{resume_hash}.marker")
         data = self._unwrap_if_valid("vectorstore", marker)
         self._record("vectorstore", hit=data is not None)
@@ -294,20 +234,13 @@ class ResumeScreenerCache:
         return self.backend.path_for("vectorstore", resume_hash)
 
     def save_vectorstore_marker(self, resume_hash: str) -> None:
-        """
-        Call this AFTER vectorstore.save_local(cache.path_for(...)) succeeds,
-        so the marker's created_at reflects a genuinely completed save.
-        """
         self.backend.write("vectorstore", f"{resume_hash}.marker", self._wrap({"resume_hash": resume_hash}))
         self._record_save("vectorstore")
 
     def vectorstore_dir_for_saving(self, resume_hash: str) -> Path:
         return self.backend.path_for("vectorstore", resume_hash)
 
-    # -- Invalidation ------------------------------------------------------
-
     def invalidate_resume(self, resume_hash: str) -> None:
-        """Removes this resume's struct, embeddings, and cached vectorstore together."""
         self.backend.delete("resume", resume_hash)
         self.backend.delete("resume_embeddings", resume_hash)
         self.backend.delete("vectorstore", f"{resume_hash}.marker")
@@ -315,14 +248,10 @@ class ResumeScreenerCache:
         logger.info(f"Invalidated all cache entries for resume {resume_hash[:12]}...")
 
     def invalidate_jd(self, jd_hash: str) -> None:
-        """Provided for symmetry/manual cleanup — a changed JD already gets a new
-        hash automatically, so this never needs to run for correctness, only
-        for reclaiming disk space on demand."""
         self.backend.delete("jd", jd_hash)
         logger.info(f"Invalidated JD cache entry {jd_hash[:12]}...")
 
     def clear_cache(self, namespace: Optional[str] = None) -> None:
-        """Clear one namespace, or everything if namespace is None."""
         targets = [namespace] if namespace else NAMESPACES
         for ns in targets:
             for key in self.backend.list_keys(ns):
@@ -332,15 +261,7 @@ class ResumeScreenerCache:
         self._persist_stats()
         logger.info(f"Cleared cache namespace(s): {targets}")
 
-    # -- Stats --------------------------------------------------------------
-
     def cache_stats(self) -> dict:
-        """
-        Returns hits/misses/saves per namespace, total disk size, last-updated
-        timestamps, and an estimated count of Gemini API calls saved by cache
-        hits (one saved call per resume/JD hit; embedding hits are a coarser
-        estimate since a single embedding call can cover many chunks/skills).
-        """
         with self._stats_lock:
             snapshot = {ns: dict(vars(s)) for ns, s in self._stats.items()}
 
@@ -388,17 +309,14 @@ def save_embeddings(key_hash: str, texts: list, vectors: list, namespace: str = 
 
 
 def get_vectorstore_dir(resume_hash: str):
-    """Directory of a cached FAISS index for this resume hash, or None if absent/expired."""
     return _default_cache.get_vectorstore_dir(resume_hash)
 
 
 def vectorstore_dir_for_saving(resume_hash: str) -> Path:
-    """Directory to pass to vectorstore.save_local(...) for this resume hash."""
     return _default_cache.vectorstore_dir_for_saving(resume_hash)
 
 
 def save_vectorstore_marker(resume_hash: str) -> None:
-    """Call after vectorstore.save_local(...) succeeds to record the cache entry."""
     _default_cache.save_vectorstore_marker(resume_hash)
 
 

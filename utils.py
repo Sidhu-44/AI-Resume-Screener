@@ -11,7 +11,6 @@ _LOGGER_NAME = "resume_screener"
 
 
 def get_logger(name: str = _LOGGER_NAME) -> logging.Logger:
-    """Return a configured singleton logger with a single console handler."""
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
@@ -27,7 +26,6 @@ def get_logger(name: str = _LOGGER_NAME) -> logging.Logger:
 
 
 class Timer:
-    """Context manager that logs how long a pipeline stage took."""
 
     def __init__(self, logger: logging.Logger, label: str):
         self.logger = logger
@@ -49,18 +47,15 @@ class Timer:
 
 
 def hash_bytes(data: bytes) -> str:
-    """Return the SHA-256 hex digest of raw bytes."""
     return hashlib.sha256(data).hexdigest()
 
 
 def hash_text(text: str) -> str:
-    """Return the SHA-256 hex digest of normalized (stripped, lowercased) text."""
     normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def extract_text_content(content) -> str:
-    """Normalize a LangChain chat response's .content (str or list of blocks) to plain text."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -77,7 +72,6 @@ def extract_text_content(content) -> str:
 
 
 def safe_parse_json(raw_text: str) -> dict:
-    """Parse a JSON object out of a model response, tolerating markdown fences or stray text."""
     cleaned = (raw_text or "").strip()
     cleaned = re.sub(r"^```json\s*|^```\s*|```$", "", cleaned, flags=re.MULTILINE).strip()
 
@@ -95,7 +89,6 @@ def safe_parse_json(raw_text: str) -> dict:
 
     raise ValueError(f"Could not parse JSON from model response. Started with: {cleaned[:200]!r}")
 def call_gemini_json(llm, prompt: str, fallback: dict) -> dict:
-    """Call the LLM expecting JSON-only output; return fallback + '_error' on any failure."""
     logger = get_logger()
     try:
         response = llm.invoke(prompt)
