@@ -27,14 +27,12 @@ PROJECT_RELEVANCE_THRESHOLD = 0.80
 
 
 def _ratio_score(matched_count: int, total_count: int) -> float:
-    """Fraction matched as a 0-100 score. No requirement (total=0) yields full score."""
     if total_count == 0:
         return 100.0
     return min(100.0, (matched_count / total_count) * 100.0)
 
 
 def _score_experience(min_years: Optional[float], resume_years: Optional[float]) -> float:
-    """Score experience match; no JD requirement yields full score."""
     if min_years is None or min_years == 0:
         return 100.0
     if resume_years is None:
